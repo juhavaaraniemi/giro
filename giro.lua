@@ -21,7 +21,7 @@
 --
 -- VARIABLES
 --
-PATH = _path.audio.."9tnp/"
+PATH = _path.audio.."giro/"
 SESSIONID = string.format("%06.0f",1000000*math.random())
 MAX_LOOP_LENGTH = 70  -- max loop length 70 sec
 CLOCK_INTERVAL = 0.01
