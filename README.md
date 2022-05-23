@@ -21,7 +21,7 @@ Giro is a performance oriented (a)sync looper.
 
 ### UI
 
-![giro screen](giro.png)
+![giro screen](giro.png | width=250)
 
 - *E1 select loop* - Selects active loop.
 - *K2 rec/ovr/play* - 1st press will start rec for empty master loops and overdub for slave loops. 2nd press will play loop. Next press will again overdub.
