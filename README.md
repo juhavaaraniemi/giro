@@ -23,6 +23,7 @@ Giro is a performance oriented (a)sync looper.
 
 <img src="giro.png" alt="screen" width="300"/>
 
+- *white dot* - selected loop
 - *number* - loop number, suffixed by c when there is content in the loop
 - *status* - status of loop (rec/ovr/stop)
 - *arc* - loop progress bar
