@@ -17,6 +17,7 @@ Giro is a performance oriented (a)sync looper.
 - Loops are synced to master loops when playing is started.
 - There can be multiple master loops within a loop group which are then asynchronous.
 - Rate can be adjusted for loops and they will get async but will be synced again when stopped and started.
+- There is a one step undo so it's possible to revert to previous loop state and cancel current recording.
 
 ### UI
 
@@ -40,6 +41,15 @@ Giro is a performance oriented (a)sync looper.
 - *rate* - loop rate (-2x,-1x,-0.5x,0.5x,1x,2x)
 
 There are toggles for all the buttons so that they can be mapped to e.g. midi foot controller.
+- *record/ovr/play*
+- *play*
+- *stop*
+- *stop all*
+- *clear*
+- *undo*
+- *next loop*
+- *previous loop*
+- *group play*
 
 - *save loops to disk* - contents of the loops will be save to disk from buffer pre of any level,pan,rate adjustments. Loops are saved to folder /audio/giro/ in format giro_sessionidxxxxxx_saveid_yyyyyy_loopz where xxxxxx is a random number for giro session, yyyyyy is a random number for saving time and z is the number of loop - e.g. giro_sessionid489027_saveid118714_loop2.wav.
 
