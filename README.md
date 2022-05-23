@@ -28,7 +28,7 @@ Giro is a performance oriented (a)sync looper.
 
 - *white dot* - selected loop
 - *number* - loop number, suffixed by c when there is content in the loop
-- *status* - status of loop (rec/ovr/stop)
+- *status* - status of loop (rec/ovr/play/stop)
 - *arc* - loop progress bar
 - *vertical bar* - loop level
 - *horizontal bar* - loop pan
