@@ -9,6 +9,9 @@ Giro is a performance oriented (a)sync looper.
 
 ## Documentation
 
+### Install
+;install https://github.com/juhavaaraniemi/giro
+
 ### General
 
 - Loops are mono. Input is read from left input of norns.
@@ -76,7 +79,7 @@ There are toggles for all the buttons so that they can be mapped to e.g. midi fo
 
 ## Thanks
 
-- Norns studies and all have participated in building those
+- Norns studies and all who have participated in building those
 - Softcut and all who have participated in building it
 - @schollz for oooooo and rc505 scripts I have been reading thru and trying to learn something
 - @kbra for a couple of useful suggestions for a looper
