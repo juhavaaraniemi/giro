@@ -28,9 +28,9 @@ Giro is a performance oriented (a)sync looper.
 - *arc* - loop progress bar
 - *vertical bar* - loop level
 - *horizontal bar* - loop pan
-- *m<number>* - number of master loop e.g. m1
-- *x<number>* - number of loop multiples
-- *g<number>* - number of loop group
+- *m(number)* - number of master loop e.g. m1
+- *x(number)* - number of loop multiples
+- *g(number)* - number of loop group
 - *G* - group play enabled when visible
 
 ### Buttons
