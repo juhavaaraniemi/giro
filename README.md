@@ -19,9 +19,21 @@ Giro is a performance oriented (a)sync looper.
 - Rate can be adjusted for loops and they will get async but will be synced again when stopped and started.
 - There is a one step undo so it's possible to revert to previous loop state and cancel current recording.
 
-### UI
+### Screen
 
 <img src="giro.png" alt="screen" width="300"/>
+
+- *number* - loop number, suffixed by c when there is content in the loop
+- *status* - status of loop (rec/ovr/stop)
+- *arc* - loop progress bar
+- *vertical bar* - loop level
+- *horizontal bar* - loop pan
+- *m<number>* - number of master loop e.g. m1
+- *x<number>* - number of loop multiples
+- *g<number>* - number of loop group
+- *G* - group play enabled when visible
+
+### Buttons
 
 - *E1 select loop* - Selects active loop.
 - *K2 rec/ovr/play* - 1st press will start rec for empty master loops and overdub for slave loops. 2nd press will play loop. Next press will again overdub.
