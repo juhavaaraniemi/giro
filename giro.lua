@@ -570,7 +570,7 @@ function save_loops_to_disk()
   for i=1,6 do
     if loop[i].content then
       print("save loop "..i)
-      saved = "9tnp_sessionid"..SESSIONID.."_saveid"..saveid.."_loop"..i..".wav"
+      saved = "giro_sessionid"..SESSIONID.."_saveid"..saveid.."_loop"..i..".wav"
       softcut.buffer_write_mono(PATH..saved,loop[i].loop_start,loop[i].length,loop[i].buffer)
     end
   end
