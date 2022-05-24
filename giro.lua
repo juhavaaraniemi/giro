@@ -7,15 +7,15 @@
 -- 
 --    ▼ instructions below ▼
 --
--- e1 select loop
--- k2 rec/ovr/play
--- k3 stop
--- k1+k2 enable group play
--- k1+k3 clear loop
--- e2 loop level
--- k1+e2 loop pan
--- e3 loop group rate
--- k1+e3 loop rate
+-- E1 select loop
+-- K2 rec/ovr/play
+-- K3 stop
+-- K1+K2 group play on/off
+-- K1+K3 clear loop
+-- E2 loop level
+-- K1+E2 loop pan
+-- E3 loop group rate
+-- K1+E3 loop rate
 --
 
 --
@@ -346,7 +346,15 @@ function clock_tick()
     if loop[selected_loop].rec == 2 then
       sync_loop_ends_to_master(selected_loop)
     end
-    stop_state(selected_loop)
+    if group_play then
+      for i=1,6 do
+        if loop[i].content and params:get(i.."group") == params:get(selected_loop.."group") then
+          stop_state(i)
+        end
+      end
+    else
+      stop_state(selected_loop)
+    end
   end
 end
 
