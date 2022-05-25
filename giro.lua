@@ -22,7 +22,6 @@
 -- VARIABLES
 --
 PATH = _path.audio.."giro/"
-SESSIONID = string.format("%06.0f",1000000*math.random())
 MAX_LOOP_LENGTH = 80  -- max loop length 80 sec
 CLOCK_INTERVAL = 0.01
 shifted = false
@@ -300,19 +299,6 @@ function init_pset_callbacks()
   params.action_write = function(filename,name)
     print("finished writing '"..filename.."' as '"..name.."'")
 
---[[    
-    local i = 0
-    local start_pos = 0
-    while true do
-      i = string.find(filename, "/", i+1)
-      if i == nil then break end
-      start_pos = i
-    end
-    local end_pos = string.find(filename, ".pset")
-    pset_name = string.sub(filename,start_pos+1,end_pos-1)
-    print(pset_name)
---]]
-
     for i=1,6 do
       local loop_file = PATH..name.."_loop"..i..".wav"
       if loop[i].content then
@@ -328,26 +314,27 @@ function init_pset_callbacks()
   
   params.action_read = function(filename)
     print("finished reading '"..filename.."'")
-      local pset_file = io.open(filename, "r")
-      if pset_file then
-        io.input(pset_file)
-        local pset_name = string.sub(io.read(), 4, -1)
-        io.close(pset_file)
+    local pset_file = io.open(filename, "r")
+    if pset_file then
+      io.input(pset_file)
+      local pset_name = string.sub(io.read(), 4, -1)
+      io.close(pset_file)
 
-        for i=1,6 do
-          loop_file = PATH..pset_name.."_loop"..i..".wav"
-          if util.file_exists(loop_file) then
-            print(loop_file.." found")
-            local ch, samples = audio.file_info(loop_file)
-            local file_length = (samples/48000)
-            softcut.buffer_read_mono(loop_file,0,loop[i].loop_start,-1,1,loop[i].buffer)
-            loop[i].length = file_length
-            loop[i].content = true
-            softcut.loop_end(i,loop[i].loop_start+file_length)
-          end
+      for i=1,6 do
+        loop_file = PATH..pset_name.."_loop"..i..".wav"
+        if util.file_exists(loop_file) then
+          print(loop_file.." found")
+          local ch, samples = audio.file_info(loop_file)
+          local file_length = (samples/48000)
+          softcut.buffer_read_mono(loop_file,0,loop[i].loop_start,-1,1,loop[i].buffer)
+          loop[i].length = file_length
+          loop[i].content = true
+          softcut.loop_end(i,loop[i].loop_start+file_length)
         end
       end
+    end
   end
+  
 end
 
 --
@@ -628,16 +615,7 @@ function restore_loop(selected)
   backup = 0
 end
 
-function save_loops_to_disk()
-  saveid = string.format("%06.0f",1000000*math.random())
-  for i=1,6 do
-    if loop[i].content then
-      print("save loop "..i)
-      saved = "giro_sessionid"..SESSIONID.."_saveid"..saveid.."_loop"..i..".wav"
-      softcut.buffer_write_mono(PATH..saved,loop[i].loop_start,loop[i].length,loop[i].buffer)
-    end
-  end
-end
+
 
 
 --
@@ -720,6 +698,6 @@ function redraw()
     screen.rect(loop[i].ui_x-16,loop[i].ui_y+13-params:get(i.."level")*26,3,1)
     screen.fill()
   end
-
+  
   screen.update()
 end
