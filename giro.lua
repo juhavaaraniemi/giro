@@ -264,13 +264,14 @@ function init_parameters()
     end
   }
   
-  params:add_separator("GIRO - FILES")
-  params:add {type="binary",id="save",name="save loops to disk",behavior="toggle",
-  action=function()
-    print("loops saved to disk")
-    save_loops_to_disk()
-  end
-  }
+--  params:add_separator("GIRO - FILES")
+--  params:add {type="binary",id="save",name="save loops to disk",behavior="toggle",
+--  action=function()
+--    print("loops saved to disk")
+--    save_loops_to_disk()
+--  end
+--  }
+  
 end
 
 --
@@ -283,6 +284,7 @@ function init()
   init_loop_variables()
   init_softcut()
   init_parameters()
+  init_pset_callbacks()
   clock.run(screen_redraw_clock)
   clock.run(master_clock)
 end
@@ -292,6 +294,60 @@ end
 --
 function update_positions(voice,position)
   loop[voice].position = position
+end
+
+function init_pset_callbacks()
+  params.action_write = function(filename,name)
+    print("finished writing '"..filename.."' as '"..name.."'")
+
+--[[    
+    local i = 0
+    local start_pos = 0
+    while true do
+      i = string.find(filename, "/", i+1)
+      if i == nil then break end
+      start_pos = i
+    end
+    local end_pos = string.find(filename, ".pset")
+    pset_name = string.sub(filename,start_pos+1,end_pos-1)
+    print(pset_name)
+--]]
+
+    for i=1,6 do
+      local loop_file = PATH..name.."_loop"..i..".wav"
+      if loop[i].content then
+        print("save loop "..i)
+        softcut.buffer_write_mono(loop_file,loop[i].loop_start,loop[i].length,loop[i].buffer)
+      else
+        if util.file_exists(loop_file) then
+          os.execute("rm "..loop_file)
+        end
+      end
+    end
+  end
+  
+  params.action_read = function(filename)
+    print("finished reading '"..filename.."'")
+      local pset_file = io.open(filename, "r")
+      if pset_file then
+        io.input(pset_file)
+        local pset_name = string.sub(io.read(), 4, -1)
+        io.close(pset_file)
+
+        for i=1,6 do
+          loop_file = PATH..pset_name.."_loop"..i..".wav"
+          if util.file_exists(loop_file) then
+            print(loop_file.." found")
+            local _, samples, rate = audio.file_info(loop_file)
+            local file_length = (samples/rate)
+            softcut.buffer_read_mono(loop_file, loop[i].loop_start,loop[i].loop_end,loop[i].length,1,loop[i].buffer,0,1)
+            loop[i].length = file_length
+            loop[i].content = true
+            softcut.loop_end(i,loop[i].loop_start+file_length)
+          end
+        end
+      end
+  end
 end
 
 --
@@ -348,7 +404,7 @@ function clock_tick()
     end
     if group_play then
       for i=1,6 do
-        if loop[i].content and params:get(i.."group") == params:get(selected_loop.."group") then
+        if params:get(i.."group") == params:get(selected_loop.."group") then
           stop_state(i)
         end
       end
@@ -509,7 +565,6 @@ function all_loops_stopped()
   return true
 end
 
---how to handle multiple?
 function sync_to_master(selected)
   if not is_master_loop(selected) and loop[params:get(selected.."master")].play == 2 then
     softcut.position(selected,loop[selected].loop_start+loop[params:get(selected.."master")].position-loop[params:get(selected.."master")].loop_start)
@@ -629,10 +684,6 @@ function redraw()
     screen.text("m"..params:get(i.."master"))
     screen.move(loop[i].ui_x+14,loop[i].ui_y+2)
     screen.text("x"..params:get(i.."multiple"))
---    if loop[i].content == true then
---      screen.move(loop[i].ui_x+15,loop[i].ui_y+2)
---      screen.text("c")
---    end
     screen.move(loop[i].ui_x+14,loop[i].ui_y+10)
     screen.text("g"..params:get(i.."group"))
 
