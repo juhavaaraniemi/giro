@@ -338,9 +338,9 @@ function init_pset_callbacks()
           loop_file = PATH..pset_name.."_loop"..i..".wav"
           if util.file_exists(loop_file) then
             print(loop_file.." found")
-            local _, samples, rate = audio.file_info(loop_file)
-            local file_length = (samples/rate)
-            softcut.buffer_read_mono(loop_file, loop[i].loop_start,loop[i].loop_end,loop[i].length,1,loop[i].buffer,0,1)
+            local ch, samples = audio.file_info(loop_file)
+            local file_length = (samples/48000)
+            softcut.buffer_read_mono(loop_file,0,loop[i].loop_start,-1,1,loop[i].buffer)
             loop[i].length = file_length
             loop[i].content = true
             softcut.loop_end(i,loop[i].loop_start+file_length)
