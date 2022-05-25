@@ -615,9 +615,6 @@ function restore_loop(selected)
   backup = 0
 end
 
-
-
-
 --
 -- REDRAW FUNCTIONS
 --
