@@ -262,15 +262,6 @@ function init_parameters()
       group_play = not group_play
     end
   }
-  
---  params:add_separator("GIRO - FILES")
---  params:add {type="binary",id="save",name="save loops to disk",behavior="toggle",
---  action=function()
---    print("loops saved to disk")
---    save_loops_to_disk()
---  end
---  }
-  
 end
 
 --
