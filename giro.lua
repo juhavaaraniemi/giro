@@ -1,10 +1,11 @@
--- giro
+-- Giro
+-- v1.0.2 @JulesV
+-- https://llllllll.co/t/giro/
 -- 
 -- (a)sync looping
 -- performance
 -- instrument
 --
--- 
 --    ▼ instructions below ▼
 --
 -- E1 select loop
@@ -207,6 +208,19 @@ function init_parameters()
       end
     }
   end
+  
+  params:add_separator("GIRO - RECORDING")
+  params:add {type="control",id="rec_level",name="rec level",controlspec=controlspec.new(0,1.0,'lin',0.01,1.0,''),
+    action=function(value)
+      print("rec level "..value)
+    end
+  }
+  params:add {type="control",id="pre_level",name="loop preserve on ovr",controlspec=controlspec.new(0,1.0,'lin',0.01,1.0,''),
+    action=function(value)
+      print("pre level "..value)
+    end
+  }
+  
   params:bang()
 
   params:add_separator("GIRO - BUTTONS")
@@ -324,6 +338,7 @@ function init_pset_callbacks()
           loop[i].length = file_length
           softcut.loop_end(i,loop[i].loop_start+file_length)
         else
+          calc_multiple(i)
           loop[i].length = loop[params:get(i.."master")].length * params:get(i.."multiple")
           softcut.loop_end(i,loop[i].loop_start+(loop[params:get(i.."master")].length * params:get(i.."multiple")))
         end
@@ -438,7 +453,7 @@ end
 function rec_state(selected)
   softcut.buffer_clear_region_channel(loop[selected].buffer,loop[selected].loop_start,MAX_LOOP_LENGTH,0.00,0)
   softcut.level(selected,params:get(selected.."level"))
-  softcut.rec_level(selected,1.0)
+  softcut.rec_level(selected,params:get("rec_level"))
   softcut.pre_level(selected,0.0)
   loop[selected].content = true
   loop[selected].rec = 2
@@ -460,8 +475,8 @@ end
 function ovr_state(selected)
   backup_loop(selected)
   softcut.level(selected,params:get(selected.."level"))
-  softcut.rec_level(selected,1.0)
-  softcut.pre_level(selected,1.0)
+  softcut.rec_level(selected,params:get("rec_level"))
+  softcut.pre_level(selected,params:get("pre_level"))
   loop[selected].content = true
   loop[selected].rec = 0
   loop[selected].play = 0
@@ -657,7 +672,6 @@ function redraw()
     screen.text("x"..params:get(i.."multiple"))
     screen.move(loop[i].ui_x+14,loop[i].ui_y+10)
     screen.text("g"..params:get(i.."group"))
-
     --loop progress circle
     screen.aa(1)
     screen.line_width(1.5)
