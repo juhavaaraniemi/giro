@@ -263,12 +263,16 @@ function init_parameters()
   }
   params:add {type="binary",id="next",name="next loop",behavior="toggle",
     action=function()
-      selected_loop = selected_loop+1
+      if selected_loop < 6 then
+        selected_loop = selected_loop+1
+      end
     end
   }
   params:add {type="binary",id="prev",name="previous loop",behavior="toggle",
     action=function()
-      selected_loop = selected_loop-1
+      if selected_loop > 1 then
+        selected_loop = selected_loop-1
+      end
     end
   }
   params:add {type="binary",id="group_play",name="group play",behavior="toggle",
@@ -328,6 +332,7 @@ function init_pset_callbacks()
       softcut.buffer_clear()
 
       for i=1,6 do
+        loop[i].content = false
         loop_file = PATH..pset_name.."_loop"..i..".wav"
         if util.file_exists(loop_file) then
           print(loop_file.." found")
