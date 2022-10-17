@@ -29,10 +29,13 @@ shifted = false
 loop = {}
 selected_loop = 1
 screen_refresh = true
+grid_dirty = true
 rates = {-2.0,-1.0,-0.5,0.5,1.0,2.0}
 ui_radius = 12
 group_play = true
 backup = 0
+
+g = grid.connect()
 
 --
 -- INIT FUNCTIONS
@@ -117,6 +120,36 @@ function init_softcut()
   softcut.poll_start_phase()
 end
 
+function init_grid_variables()
+  g_counter = 1
+  g_blink = true
+  g_loop_select = {y = 1}
+  g_loop_state = {}
+  g_global_functions = {}
+  g_params = {}
+  g_level = {}
+  g_pan = {}
+  g_rate = {}
+  g_master = {}
+  g_group = {}
+  g_multiple = {}
+  g_alt = {x = 6}
+  for y=1,6 do
+    g_loop_state[y] = {x = 3}
+    g_params[y] = {x = 6}
+    g_level[y] = {x = 16}
+    g_pan[y] = {x = 11}
+    g_rate[y] = {x = 10}
+    g_master[y] = {x = 6}
+    g_group[y] = {x = 6}
+    g_multiple[y] = {x = 6}
+  end
+  for x=1,4 do
+    g_global_functions[x] = false
+  end
+  
+end
+
 function init_parameters()
   print("init_parameters")
   params:add_separator("GIRO - LOOPS")
@@ -159,6 +192,7 @@ function init_parameters()
             params.params[mult_look].max = 8
           end
         end
+        grid_dirty = true
       end
     }
     params:add {
@@ -170,6 +204,7 @@ function init_parameters()
       default=1,
       action=function(value)
         print(i.."loop group: "..value)
+        grid_dirty = true
       end
     }
     params:add {
@@ -185,6 +220,7 @@ function init_parameters()
           softcut.loop_end(i,loop[i].loop_start+loop[i].length)
         end
         print(i.."multiple: "..value)
+        grid_dirty = true
       end
     }    
     params:add {type="control",id=i.."level",name="level",controlspec=controlspec.new(0,1.0,'db',0.01,1.0,''),
@@ -193,18 +229,21 @@ function init_parameters()
           softcut.level(i,value)
         end
         print(i.."level "..value)
+        grid_dirty = true
       end
     }
     params:add {type="control",id=i.."pan",name="pan",controlspec=controlspec.new(-1,1.0,'lin',0.01,0.0,''),
       action=function(value)
         softcut.pan(i,value)
         print(i.."pan"..value)
+        grid_dirty = true
       end
     }
     params:add {type="option",id=i.."rate",name="rate",options=rates,default=5,
       action=function(value)
         softcut.rate(i,rates[value])
         print(i.."rate"..rates[value])
+        grid_dirty = true
       end
     }
   end
@@ -244,9 +283,7 @@ function init_parameters()
   }
   params:add {type="binary",id="stop_all",name="stop all",behavior="toggle",
     action=function()
-      for i=1,6 do
-        stop_state(i)
-      end
+      stop_all_press()
     end
   }
   params:add {type="binary",id="clear",name="clear",behavior="toggle",
@@ -290,10 +327,12 @@ function init()
   norns.enc.sens(1,5)
   norns.enc.sens(3,5)
   init_loop_variables()
+  init_grid_variables()
   init_softcut()
   init_parameters()
   init_pset_callbacks()
   clock.run(screen_redraw_clock)
+  clock.run(grid_redraw_clock)
   clock.run(master_clock)
 end
 
@@ -360,6 +399,17 @@ function screen_redraw_clock()
   while true do
     clock.sleep(1/30) -- refresh at 30fps.
     redraw()
+  end
+end
+
+function grid_redraw_clock()
+  while true do
+    clock.sleep(1/30) -- refresh at 30fps.
+    update_grid_variables()
+    if grid_dirty then
+      grid_redraw()
+      grid_dirty = false
+    end
   end
 end
 
@@ -432,6 +482,7 @@ function key(n,z)
   elseif n == 3 and z == 1 then
     stop_press()
   end
+  grid_dirty = true
 end
 
 function enc(n,d)
@@ -450,6 +501,73 @@ function enc(n,d)
       end
     end
   end
+  grid_dirty = true
+end
+
+function g.key(x,y,z)
+  if y == 8 then
+    g_global_functions[x] = z == 1 and true or false
+  end
+  if z == 1 then
+    if x == 1 and y <= 6 then
+      g_loop_select.y = y
+      selected_loop = g_loop_select.y
+    elseif x >= 2 and x <= 4 and y <= 6 then
+      g_loop_state[y].x = x
+      g_loop_select.y = y
+      selected_loop = g_loop_select.y
+      if g_loop_state[y].x == 2 then
+        rec_press()
+      elseif g_loop_state[y].x == 3 then
+        stop_press()
+      elseif g_loop_state[y].x == 4 then
+        clear_press()
+      end
+    elseif y == 8 and x >= 6 and x <= 11 then
+      g_alt.x = x
+    elseif y == 8 and x <= 4 then
+      if x == 1 then
+        group_play = not group_play
+      elseif x == 2 then
+        undo_press()
+      elseif x == 3 then
+        stop_all_press()
+      elseif x == 4 then
+        print("still thinking about")
+      end
+    elseif g_alt.x == 9 then
+      if x >= 6 and x <=16 and y <= 6 then
+        g_level[y].x = x
+        params:set(y.."level",(0.1*(x-6)))
+      end
+    elseif g_alt.x == 10 then
+      if x >= 6 and x <=16 and y <= 6 then
+        g_pan[y].x = x
+        params:set(y.."pan",(0.2*(x-11)))
+      end
+    elseif g_alt.x == 11 then
+      if x >= 6 and x <=11 and y <= 6 then
+        g_rate[y].x = x
+        params:set(y.."rate",(x-5))
+      end
+    elseif g_alt.x == 6 then
+      if x >= 6 and x <=11 and y <= 6 then
+        g_master[y].x = x
+        params:set(y.."master",(x-5))
+      end
+    elseif g_alt.x == 7 then
+      if x >= 6 and x <=11 and y <= 6 then
+        g_group[y].x = x
+        params:set(y.."group",(x-5))
+      end
+    elseif g_alt.x == 8 then
+      if x >= 6 and x <=13 and y <= 6 then
+        g_multiple[y].x = x
+        params:set(y.."multiple",(x-5))
+      end
+    end
+  end
+  grid_dirty = true
 end
 
 --
@@ -465,6 +583,7 @@ function rec_state(selected)
   loop[selected].play = 0
   loop[selected].ovr = 0
   loop[selected].stop = 0
+  grid_dirty = true
 end
 
 function play_state(selected)
@@ -475,6 +594,7 @@ function play_state(selected)
   loop[selected].play = 2
   loop[selected].ovr = 0
   loop[selected].stop = 0
+  grid_dirty = true
 end
 
 function ovr_state(selected)
@@ -487,6 +607,7 @@ function ovr_state(selected)
   loop[selected].play = 0
   loop[selected].ovr = 2
   loop[selected].stop = 0
+  grid_dirty = true
 end
 
 function stop_state(selected)
@@ -497,11 +618,13 @@ function stop_state(selected)
   loop[selected].play = 0
   loop[selected].ovr = 0
   loop[selected].stop = 2
+  grid_dirty = true
 end
 
 function clear_state(selected)
   softcut.buffer_clear_region_channel(loop[selected].buffer,loop[selected].loop_start,MAX_LOOP_LENGTH,0.00,0)
   loop[selected].content = false
+  grid_dirty = true
 end
 
 function rec_press()
@@ -531,6 +654,12 @@ end
 
 function stop_press()
   loop[selected_loop].stop = 1
+end
+
+function stop_all_press()
+  for i=1,6 do
+    stop_state(i)
+  end
 end
 
 function clear_press()
@@ -631,11 +760,41 @@ function restore_loop(selected)
   backup = 0
 end
 
+function update_grid_variables()
+  g_loop_select.y = selected_loop
+  
+  for i=1,6 do
+    if loop[i].rec == 2 or loop[i].ovr == 2 or loop[i].play == 2 then
+      g_loop_state[i].x = 2
+      grid_dirty = true
+    elseif loop[i].stop == 2 then
+      g_loop_state[i].x = 3
+    end
+    
+    g_master[i].x = params:get(i.."master")+5
+    g_group[i].x = params:get(i.."group")+5
+    g_multiple[i].x = params:get(i.."multiple")+5
+    g_level[i].x = math.floor(params:get(i.."level")*10)+6
+    g_pan[i].x = math.floor((params:get(i.."pan")+1.1)*5)+6
+    g_rate[i].x = params:get(i.."rate")+5
+  end
+  
+  g_global_functions[1] = group_play
+  
+  if g_counter > 5 then
+    g_counter = 1
+    g_blink = not g_blink
+  else
+    g_counter = g_counter + 1
+  end
+end
+
 --
 -- REDRAW FUNCTIONS
 --
 function redraw()
   screen.clear()
+  
   --  group play
   if group_play then
     screen.level(15)
@@ -686,9 +845,14 @@ function redraw()
     screen.stroke()
     if loop[i].play == 2 or loop[i].ovr == 2 then
       screen.level(15)
-      screen.move(loop[i].ui_x+ui_radius,loop[i].ui_y)
-      screen.arc(loop[i].ui_x,loop[i].ui_y,ui_radius,0,2*math.pi*(loop[i].position-loop[i].loop_start)/loop[i].length)
+      screen.arc(loop[i].ui_x,loop[i].ui_y,ui_radius,-math.pi/2,2*math.pi*(loop[i].position-loop[i].loop_start)/loop[i].length-math.pi/2)
       screen.stroke()
+    end
+    --loop progress when stopped
+    if loop[i].stop == 2 and loop[params:get(i.."master")].play == 2 and i == selected_loop then
+      screen.level(15)
+      screen.pixel(loop[i].ui_x-0.5+ui_radius*math.sin(2*math.pi*(loop[i].position-loop[i].loop_start)/loop[i].length), loop[i].ui_y-0.5-ui_radius*math.cos(2*math.pi*(loop[i].position-loop[i].loop_start)/loop[i].length))
+      screen.fill()
     end
     --pan
     screen.level(15)
@@ -710,6 +874,70 @@ function redraw()
     screen.rect(loop[i].ui_x-16,loop[i].ui_y+13-params:get(i.."level")*26,3,1)
     screen.fill()
   end
-  
   screen.update()
+end
+
+function grid_redraw()
+  g:all(0)
+  for y = 1,6 do
+    g:led(1,y,4)
+    g:led(1, g_loop_select.y, 15)
+    for x=2,4 do
+      g:led(x,y,4)
+    end
+    if loop[y].rec == 2 or loop[y].ovr == 2 then
+      g:led(g_loop_state[y].x ,y, g_blink and 15 or 4)
+    else
+      g:led(g_loop_state[y].x ,y, 15)
+    end
+    if loop[y].content then
+      g:led(4, y, 9)
+    else
+      g:led(4,y,4)
+    end
+    if g_alt.x == 9 then
+      for x=6,16 do
+        g:led(x,y,4)
+      end
+      g:led(g_level[y].x, y, 15)
+    elseif g_alt.x == 10 then
+      for x=6,16 do
+        g:led(x,y,4)
+      end
+      g:led(11,y,9)
+      g:led(g_pan[y].x, y, 15)
+    elseif g_alt.x == 11 then
+      for x=6,11 do
+        g:led(x,y,4)
+      end
+      g:led(g_rate[y].x, y, 15)
+    elseif g_alt.x == 6 then
+      for x=6,11 do
+        g:led(x,y,4)
+      end
+      g:led(g_master[y].x, y, 15)
+    elseif g_alt.x == 7 then
+      for x=6,11 do
+        g:led(x,y,4)
+      end
+      g:led(g_group[y].x, y, 15)
+    elseif g_alt.x == 8 then
+      for x=6,13 do
+        g:led(x,y,4)
+      end
+      g:led(g_multiple[y].x, y, 15)
+    end
+  end
+  for x=6,11 do
+    g:led(x,8,4)
+  end
+  g:led(g_alt.x, 8, 15)
+  for x=1,4 do
+    g:led(x,8,4)
+    if g_global_functions[x] then
+      g:led(x,8,15)
+    end
+  end
+
+  g:refresh()
 end
