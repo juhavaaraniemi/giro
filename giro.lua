@@ -1,5 +1,5 @@
 -- Giro
--- v1.0.2 @JulesV
+-- v1.1 @JulesV
 -- https://llllllll.co/t/giro/
 -- 
 -- (a)sync looping
@@ -31,9 +31,16 @@ selected_loop = 1
 screen_refresh = true
 grid_dirty = true
 rates = {-2.0,-1.0,-0.5,0.5,1.0,2.0}
+sync_modes = {"free","clocked"}
+sync_mode = 1
+time_denominators = {1,2,4,8,16}
+transport = 0
+bar = 1
+beat = 1
 ui_radius = 12
 group_play = true
 backup = 0
+event_queue = {}
 
 g = grid.connect()
 
@@ -49,6 +56,8 @@ function init_loop_variables()
     loop[i].ovr = 0   -- 0=disabled 1=armed 2=enabled
     loop[i].stop = 2  -- 0=disabled 1=armed 2=enabled
     loop[i].length = MAX_LOOP_LENGTH
+    loop[i].length_in_beats = 0
+    loop[i].next_restart = 0
     loop[i].content = false
     loop[i].position = 0.00
   end
@@ -154,7 +163,7 @@ function init_parameters()
   print("init_parameters")
   params:add_separator("GIRO - LOOPS")
   for i=1,6 do
-    params:add_group("loop "..i,6)
+    params:add_group("loop "..i,7)
     params:add {
       type="number",
       id=i.."master",
@@ -239,11 +248,28 @@ function init_parameters()
         grid_dirty = true
       end
     }
-    params:add {type="option",id=i.."rate",name="rate",options=rates,default=5,
+    params:add {
+      type="option",
+      id=i.."rate",name="rate",
+      options=rates,
+      default=5,
       action=function(value)
         softcut.rate(i,rates[value])
         print(i.."rate"..rates[value])
         grid_dirty = true
+      end
+    }
+    params:add {
+      type="option",
+      id=i.."sync",
+      name="sync mode",
+      options=sync_modes,
+      default=1,
+      action=function(value)
+        sync_mode = value
+        if value == 2 then
+          params:set(i.."master",i)
+        end
       end
     }
   end
@@ -257,6 +283,29 @@ function init_parameters()
   params:add {type="control",id="pre_level",name="loop preserve on ovr",controlspec=controlspec.new(0,1.0,'lin',0.01,1.0,''),
     action=function(value)
       print("pre level "..value)
+    end
+  }
+  
+  params:add_separator("GIRO - TIME SIGNATURE")
+  params:add {
+    type="number",
+    id="time_numerator",
+    name="time numerator",
+    min=1,
+    max=16,
+    default=4,
+    action=function(value)
+      print("beats in sec: "..clock.get_beat_sec()*params:get("time_numerator")*4/time_denominators[params:get("time_denominator")])
+    end
+  }
+  params:add {
+    type="option",
+    id="time_denominator",
+    name="time denominator",
+    options=time_denominators,
+    default=3,
+    action=function(value)
+      print("beats in sec: "..clock.get_beat_sec()*params:get("time_numerator")*4/time_denominators[params:get("time_denominator")])
     end
   }
   
@@ -317,6 +366,17 @@ function init_parameters()
       group_play = not group_play
     end
   }
+  params:add {type="binary",id="transport_start",name="start transport",behavior="toggle",
+    action=function()
+      clock.transport.start()
+    end
+  }
+  params:add {type="binary",id="transport_stop",name="stop transport",behavior="toggle",
+    action=function()
+      clock.transport.stop()
+    end
+  }
+  
 end
 
 --
@@ -331,8 +391,10 @@ function init()
   init_softcut()
   init_parameters()
   init_pset_callbacks()
-  clock.run(screen_redraw_clock)
-  clock.run(grid_redraw_clock)
+  screen_redraw_metro = metro.init(screen_redraw_event,1/60,-1)
+  screen_redraw_metro:start()
+  grid_redraw_metro = metro.init(grid_redraw_event,1/30,-1)
+  grid_redraw_metro:start()
   clock.run(master_clock)
 end
 
@@ -341,6 +403,18 @@ end
 --
 function update_positions(voice,position)
   loop[voice].position = position
+end
+
+function clock.transport.start()
+  bc = clock.run(beat_clock)
+end
+
+function clock.transport.stop()
+  stop_all_press()
+  clock.cancel(bc)
+  transport = 0
+  beat = 1
+  bar = 1
 end
 
 function init_pset_callbacks()
@@ -395,76 +469,105 @@ end
 --
 -- CLOCK FUNCTIONS
 --
-function screen_redraw_clock()
-  while true do
-    clock.sleep(1/30) -- refresh at 30fps.
+
+function screen_redraw_event()
+  ready = true
+end
+
+function refresh()
+  if ready then
     redraw()
+    ready = false
   end
 end
 
-function grid_redraw_clock()
+function beat_clock()
+  if params:string("clock_source") == "link" then
+    print("linking")
+    clock.sync(4/time_denominators[params:get("time_denominator")])
+    transport = 0
+    beat = 1
+    bar = 1
+  end
   while true do
-    clock.sleep(1/30) -- refresh at 30fps.
-    update_grid_variables()
-    if grid_dirty then
-      grid_redraw()
-      grid_dirty = false
+    clock.sync(4/time_denominators[params:get("time_denominator")])
+    transport = transport + 1
+    beat = beat + 1
+    if transport % params:get("time_numerator") == 0 then
+      if params:get(selected_loop.."sync") == 2 then
+        clock_tick()
+      end
+      beat = 1
+      bar = bar + 1
     end
+    restart_loops_to_beat_clock()
+  end
+end
+
+function grid_redraw_event()
+  update_grid_variables()
+  if grid_dirty then
+    grid_redraw()
+    grid_dirty = false
   end
 end
 
 function master_clock()
   while true do
     clock.sleep(CLOCK_INTERVAL)
-    clock_tick()
+    if params:get(selected_loop.."sync") == 1 then
+      clock_tick()
+    end
   end
 end
 
 function clock_tick()
-  if loop[selected_loop].rec == 1 then
-    stop_other_loop_groups(selected_loop)
-    reset_loop_ends(selected_loop)
-    restart_loops(selected_loop)
-    rec_state(selected_loop)
-  elseif loop[selected_loop].ovr == 1 then
-    ovr_state(selected_loop)
-  elseif loop[selected_loop].play == 1 then
-    stop_other_loop_groups(selected_loop)
-    if loop[selected_loop].rec == 2 then
-      sync_loop_ends_to_master(selected_loop)
-      play_state(selected_loop)
-    elseif loop[selected_loop].stop == 2 then
-      if all_loops_stopped() then
-        restart_loops(selected_loop)
+  for _,v in pairs(event_queue) do
+    if loop[v].rec == 1 then
+      stop_other_loop_groups(v)
+      reset_loop_ends(v)
+      restart_loops(v)
+      rec_state(v)
+    elseif loop[v].ovr == 1 then
+      ovr_state(v)
+    elseif loop[v].play == 1 then
+      stop_other_loop_groups(v)
+      if loop[v].rec == 2 then
+        sync_loop_ends_to_master(v)
+        play_state(v)
+      elseif loop[v].stop == 2 then
+        if master_loop_stopped(v) then
+          restart_loops(v)
+        end
+        if group_play then
+          for i=1,6 do
+            if loop[i].content and params:get(i.."group") == params:get(v.."group") then
+              play_state(i)
+            end
+          end
+        else
+          wait_for_master(v)
+          play_state(v)
+        end
+      end
+      play_state(v)
+    elseif loop[v].stop == 1 then
+      stop_other_loop_groups(v)
+      if loop[v].rec == 2 then
+        sync_loop_ends_to_master(v)
       end
       if group_play then
-        sync_to_master(selected_loop)
         for i=1,6 do
-          if loop[i].content and params:get(i.."group") == params:get(selected_loop.."group") then
-            play_state(i)
+          if params:get(i.."group") == params:get(v.."group") then
+            stop_state(i)
           end
         end
       else
-        sync_to_master(selected_loop)
-        play_state(selected_loop)
+        stop_state(v)
       end
-    end
-    play_state(selected_loop)
-  elseif loop[selected_loop].stop == 1 then
-    stop_other_loop_groups(selected_loop)
-    if loop[selected_loop].rec == 2 then
-      sync_loop_ends_to_master(selected_loop)
-    end
-    if group_play then
-      for i=1,6 do
-        if params:get(i.."group") == params:get(selected_loop.."group") then
-          stop_state(i)
-        end
-      end
-    else
-      stop_state(selected_loop)
     end
   end
+  event_queue = {}
 end
 
 --
@@ -583,6 +686,7 @@ function rec_state(selected)
   loop[selected].play = 0
   loop[selected].ovr = 0
   loop[selected].stop = 0
+  loop[selected].next_restart = 0
   grid_dirty = true
 end
 
@@ -594,6 +698,7 @@ function play_state(selected)
   loop[selected].play = 2
   loop[selected].ovr = 0
   loop[selected].stop = 0
+  loop[selected].next_restart = transport + loop[selected].length_in_beats
   grid_dirty = true
 end
 
@@ -607,6 +712,7 @@ function ovr_state(selected)
   loop[selected].play = 0
   loop[selected].ovr = 2
   loop[selected].stop = 0
+  loop[selected].next_restart = transport + loop[selected].length_in_beats
   grid_dirty = true
 end
 
@@ -618,16 +724,21 @@ function stop_state(selected)
   loop[selected].play = 0
   loop[selected].ovr = 0
   loop[selected].stop = 2
+  loop[selected].next_restart = 0
   grid_dirty = true
 end
 
 function clear_state(selected)
   softcut.buffer_clear_region_channel(loop[selected].buffer,loop[selected].loop_start,MAX_LOOP_LENGTH,0.00,0)
   loop[selected].content = false
+  loop[selected].length_in_bars = 0
   grid_dirty = true
 end
 
 function rec_press()
+  
+  table.insert(event_queue,selected_loop)
+  
   -- if loop is empty
   if not loop[selected_loop].content and is_master_loop(selected_loop) then
     loop[selected_loop].rec = 1
@@ -649,25 +760,32 @@ function rec_press()
 end 
 
 function play_press()
+  table.insert(event_queue,selected_loop)
   loop[selected_loop].play = 1
 end
 
 function stop_press()
-  loop[selected_loop].stop = 1
+  table.insert(event_queue,selected_loop)
+  if loop[selected_loop].stop ~= 2 then
+    loop[selected_loop].stop = 1
+  end
 end
 
 function stop_all_press()
   for i=1,6 do
+    table.insert(event_queue,i)
     stop_state(i)
   end
 end
 
 function clear_press()
+  --table.insert(event_queue,selected_loop)
   clear_state(selected_loop)
   stop_state(selected_loop)
 end
 
 function undo_press()
+  table.insert(event_queue,selected_loop)
   if loop[selected_loop].content then
     if loop[selected_loop].play == 2 or loop[selected_loop].stop == 2 then
       if backup == selected_loop then
@@ -688,18 +806,19 @@ function is_master_loop(selected)
   end
 end
 
-function all_loops_stopped()
-  for i=1,6 do
-    if loop[i].stop ~= 2 then
-      return false
-    end
+function master_loop_stopped(selected)
+  if loop[params:get(selected.."master")].stop == 2 then
+    return true
   end
-  return true
+  return false
 end
 
-function sync_to_master(selected)
+function wait_for_master(selected)
   if not is_master_loop(selected) and loop[params:get(selected.."master")].play == 2 then
-    softcut.position(selected,loop[selected].loop_start+loop[params:get(selected.."master")].position-loop[params:get(selected.."master")].loop_start)
+    while loop[params:get(selected.."master")].position ~= loop[params:get(selected.."master")].loop_start do
+      clock.sleep(0.01)
+    end
+    softcut.position(selected,loop[selected].loop_start)
   end
 end
 
@@ -716,7 +835,16 @@ function calc_multiple(selected)
 end
 
 function sync_loop_ends_to_master(selected)
+  
   local master_length = loop[selected].position - loop[selected].loop_start
+  
+  if params:get(selected.."sync") == 2 then
+    loop[selected].length_in_beats = math.floor(master_length / clock.get_beat_sec() * time_denominators[params:get("time_denominator")] / 4 + 0.5)
+    print("master length in beats: "..loop[selected].length_in_beats)
+    master_length = loop[selected].length_in_beats * clock.get_beat_sec() * 4 / time_denominators[params:get("time_denominator")]
+    print("master length in sec: "..master_length)
+  end
+    
   for i=1,6 do
     if params:get(i.."master") == params:get(selected.."master") then
       calc_multiple(i)
@@ -746,6 +874,21 @@ function stop_other_loop_groups(selected)
   for i=1,6 do
     if params:get(i.."group") ~= params:get(selected.."group") then
       stop_state(i)
+    end
+  end
+end
+
+function restart_loops_to_beat_clock()
+  for i=1,6 do
+    if loop[i].content 
+    and loop[i].length_in_beats ~= 0 
+    and params:get(i.."sync") == 2 
+    and (loop[i].play == 2 or loop[i].ovr == 2) then
+      if transport == loop[i].next_restart then
+        loop[i].next_restart = transport + loop[i].length_in_beats
+        print("restart loop "..i)
+        softcut.position(i,loop[i].loop_start)
+      end
     end
   end
 end
@@ -789,12 +932,35 @@ function update_grid_variables()
   end
 end
 
+function is_clocked()
+  for i=1,6 do
+    if params:get(i.."sync") == 2 then
+      return true
+    else
+      return false
+    end
+  end
+end
+     
+
 --
 -- REDRAW FUNCTIONS
 --
 function redraw()
   screen.clear()
-  
+  -- transport
+  screen.level(15)
+  --screen.move(10,6)
+  --screen.text(transport)
+  for i=1,params:get("time_numerator") do
+    if i == beat then
+      screen.rect(i*6-1,0,4,4)
+      screen.fill()
+    else
+      screen.rect(i*6,1,3,3)
+      screen.stroke()
+    end
+  end
   --  group play
   if group_play then
     screen.level(15)
